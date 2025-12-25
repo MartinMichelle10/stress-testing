@@ -1,0 +1,90 @@
+assigneeId
+assigneeUserId
+assigneeUserIds
+ccUserId
+transferToUserId
+userId      [dbo].[User]
+
+
+originalTaskId
+taskId [dbo].[Tasks]
+
+organizationName
+organizationId [dbo].[ContactOrganizations]
+
+-- [Dev.Tarasol.Tenant.cbe].dbo.ContactOrganizations definition
+
+-- Drop table
+
+-- DROP TABLE [Dev.Tarasol.Tenant.cbe].dbo.ContactOrganizations;
+
+CREATE TABLE ContactOrganizations (
+	ID int IDENTITY(1,1) NOT NULL,
+	Name nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+	ResponsiblePersonName nvarchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	OrganizationType int NULL,
+	Address nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	PhoneNumber nvarchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	MobileNumber nvarchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	Fax nvarchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	CreatedDTS datetime NOT NULL,
+	Logo image NULL,
+	EmailAddress nvarchar(255) COLLATE Arabic_CI_AI_KS_WS NULL,
+	Active bit DEFAULT 1 NULL,
+	CONSTRAINT PK_ContactOrganizations PRIMARY KEY (ID)
+);
+attachmentId [dbo].[Attachments]
+correspondenceId [dbo].[correspondences]
+
+employeeName
+contactEmployeeId [dbo].[ContactEmployee]
+
+-- [Dev.Tarasol.Tenant.cbe].dbo.ContactEmployees definition
+
+-- Drop table
+
+-- DROP TABLE [Dev.Tarasol.Tenant.cbe].dbo.ContactEmployees;
+
+CREATE TABLE ContactEmployees (
+	ID int IDENTITY(1,1) NOT NULL,
+	OrganizationID int NOT NULL,
+	Name nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+	Address nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	PhoneNumber nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	EmailAddress varchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	CreatedDTS datetime NOT NULL,
+	Title nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	FaxNumber nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	MobileNumber nvarchar(MAX) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+	IsActive bit DEFAULT 1 NULL,
+	CONSTRAINT PK_ContactEmployees PRIMARY KEY (ID)
+);
+
+
+correspondencePropertyId [dbo].[CorrespondenceProperty]
+
+
+
+entityId [dbo].[LkStructureEntity]
+
+typeId [dbo].[LKCorrespondenceTypes]
+
+taskTypeId [dbo.TaskType]
+
+statusId [dbo].[LKStatuses]
+
+
+
+
+priorityId [dbo].LKPriorities
+sourceId [dbo].LKCorrespondenceSources
+
+
+subject
+replyComment
+externalReference
+reminderDate
+reminderText
+closeComment
+comment
+dueDate

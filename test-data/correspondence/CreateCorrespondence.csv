@@ -1,0 +1,6 @@
+organizationId,contactEmployeeId,externalReference,subject,priorityId,typeId,sourceId,statusId,organizationName,employeeName
+2148,5017,158,Test Inbound Correspondence,15,1,1,1,Bank CIB,Ahmed Hassan
+2144,5018,159,Urgent Document Review,16,1,1,1,Finance Corp,Mohamed Ali
+2145,5019,160,Quarterly Report,14,2,1,1,Legal Services,Sara Ahmed
+2146,5020,161,Contract Renewal,15,1,2,1,HR Department,Omar Khaled
+2149,5021,162,Budget Approval,17,2,2,1,IT Department,Fatima Nour
