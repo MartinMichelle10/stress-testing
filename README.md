@@ -35,7 +35,7 @@ TENANT_ID=your_tenant_id_here
 
 | Field | Source | Notes |
 |-------|--------|-------|
-| userId, assigneeId, ccUserId, etc. | MSSQL `[dbo].[User]` | Random user IDs |
+| userId, assigneeId, ccUserId, etc. | MSSQL `[dbo].[Users]` | Random user IDs |
 | taskId, originalTaskId, etc. | MSSQL `[dbo].[Tasks]` | Random task IDs |
 | correspondenceId | MSSQL `[dbo].[Correspondences]` | Random correspondence IDs |
 | organizationId | MSSQL `[dbo].[ContactOrganizations]` | Random org IDs |
@@ -95,7 +95,7 @@ output/
 
 | CSV Key | Database Table |
 |---------|----------------|
-| userId, assigneeId, assigneeUserId, ccUserId, transferToUserId | [dbo].[User] |
+| userId, assigneeId, assigneeUserId, ccUserId, transferToUserId | [dbo].[Users] |
 | taskId, originalTaskId | [dbo].[Tasks] |
 | organizationId, organizationName | [dbo].[ContactOrganizations] |
 | contactEmployeeId, employeeName | [dbo].[ContactEmployees] |

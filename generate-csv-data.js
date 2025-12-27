@@ -29,19 +29,19 @@ const TENANT_ID = process.env.TENANT_ID;
 // Table mappings for MSSQL
 const tableMappings = {
     // User-related IDs
-    userId: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeId: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeUserId: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeUserId1: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeUserId2: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeUserId3: { table: '[dbo].[User]', idColumn: 'ID' },
-    assigneeUserIds: { table: '[dbo].[User]', idColumn: 'ID', multiple: true, count: 11 },
-    ccUserId: { table: '[dbo].[User]', idColumn: 'ID' },
-    ccUserId1: { table: '[dbo].[User]', idColumn: 'ID' },
-    ccUserId2: { table: '[dbo].[User]', idColumn: 'ID' },
-    ccUserId3: { table: '[dbo].[User]', idColumn: 'ID' },
-    transferToUserId: { table: '[dbo].[User]', idColumn: 'ID' },
-    creatorUserId: { table: '[dbo].[User]', idColumn: 'ID' },
+    userId: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeId: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeUserId: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeUserId1: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeUserId2: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeUserId3: { table: '[dbo].[Users]', idColumn: 'ID' },
+    assigneeUserIds: { table: '[dbo].[Users]', idColumn: 'ID', multiple: true, count: 11 },
+    ccUserId: { table: '[dbo].[Users]', idColumn: 'ID' },
+    ccUserId1: { table: '[dbo].[Users]', idColumn: 'ID' },
+    ccUserId2: { table: '[dbo].[Users]', idColumn: 'ID' },
+    ccUserId3: { table: '[dbo].[Users]', idColumn: 'ID' },
+    transferToUserId: { table: '[dbo].[Users]', idColumn: 'ID' },
+    creatorUserId: { table: '[dbo].[Users]', idColumn: 'ID' },
 
     // Task-related IDs
     taskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
