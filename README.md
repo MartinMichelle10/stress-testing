@@ -10,18 +10,38 @@ A Node.js script that generates CSV test data by fetching random IDs from MSSQL 
 npm install
 ```
 
-### 2. Configure Database Connection
+### 2. Configure Database Connections
 
 Edit the `.env` file with your database credentials:
 
 ```env
+# MSSQL Configuration
 DB_SERVER=your_server_ip
 DB_NAME=your_database_name
 DB_USER=sa
 DB_PASSWORD=your_password
 DB_ENCRYPT=false
 DB_TRUST_SERVER_CERTIFICATE=true
+
+# MongoDB Configuration
+MONGO_URL=mongodb://localhost:27017
+MONGO_DB_NAME=taaboraDB
+
+# Tenant ID (fixed value for MongoDB queries)
+TENANT_ID=your_tenant_id_here
 ```
+
+### Data Sources
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| userId, assigneeId, ccUserId, etc. | MSSQL `[dbo].[User]` | Random user IDs |
+| taskId, originalTaskId, etc. | MSSQL `[dbo].[Tasks]` | Random task IDs |
+| correspondenceId | MSSQL `[dbo].[Correspondences]` | Random correspondence IDs |
+| organizationId | MSSQL `[dbo].[ContactOrganizations]` | Random org IDs |
+| tenantId | Environment variable `TENANT_ID` | Fixed value |
+| accountId | MongoDB `useraccounts` | Filtered by tenantId |
+| roleAccountId, roleId | MongoDB `roles` | Filtered by tenantId |
 
 ## Usage
 
