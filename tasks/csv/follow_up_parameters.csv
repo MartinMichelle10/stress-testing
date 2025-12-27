@@ -1,0 +1,6 @@
+taskId,pageIndex,pageSize,sortDirection,createdAtFrom,createdAtTo,assignedAtFrom,assignedAtTo,filePath,mimeType
+pinned_tasks,0,10,descending,,,,,"E:\JMeter-Scenarios\test-files\sample.pdf",application/pdf
+pinned_tasks,0,20,ascending,,,,,"E:\JMeter-Scenarios\test-files\document.docx",application/vnd.openxmlformats-officedocument.wordprocessingml.document
+pinned_tasks,1,10,descending,,,,,"E:\JMeter-Scenarios\test-files\image.png",image/png
+follow_up_tasks,0,10,descending,,,,,"E:\JMeter-Scenarios\test-files\data.json",application/json
+follow_up_tasks,0,15,ascending,,,,,"E:\JMeter-Scenarios\test-files\report.xlsx",application/vnd.openxmlformats-officedocument.spreadsheetml.sheet

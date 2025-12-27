@@ -1,6 +1,0 @@
-correspondenceId,organizationId,contactEmployeeId,entityId,userId,priorityId,typeId,sourceId,statusId,subject,externalReference,organizationName,employeeName,correspondencePropertyId
-191058,13200,5017,3462,2350,15,1,1,1,test correspondence first round,1144,bank cib,honda,9
-191059,13201,5018,3463,2351,16,1,1,1,urgent document review,1145,bank xyz,john,9
-191060,13202,5019,3464,2352,14,2,1,1,quarterly report submission,1146,finance corp,sarah,9
-191061,13203,5020,3465,2353,15,1,2,1,contract renewal request,1147,legal services,mike,9
-191062,13204,5021,3466,2354,17,1,1,2,budget approval pending,1148,accounting dept,lisa,9

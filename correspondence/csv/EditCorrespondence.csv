@@ -1,0 +1,2 @@
+correspondenceId,organizationId,contactEmployeeId,entityId,userId,priorityId,typeId,sourceId,statusId,subject,externalReference,organizationName,employeeName,correspondencePropertyId,dueDate,receivedDate,sentDate,subjectNames,attachmentFile
+191058,13200,5017,3462,2350,15,1,1,1,test correspondence first round,1144,bank cib,honda,9,2025-10-31T14:00:00.000Z,2025-10-27T13:51:00.000Z,2025-10-27T13:51:00.000Z,الاعتمادات المستندية,dictionary.pdf

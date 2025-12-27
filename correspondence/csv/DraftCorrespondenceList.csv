@@ -1,0 +1,6 @@
+correspondenceId,organizationId,contactEmployeeId,entityId,userId,typeId,subject,externalReference,pageIndex,listPageSize,attachmentPageSize
+192077,13200,5017,3473,2350,126,Test Draft Correspondence 1,EXT-001,0,20,100
+192078,13201,5018,3474,2351,127,Test Draft Correspondence 2,EXT-002,0,20,100
+192079,13202,5019,3475,2352,126,Test Draft Correspondence 3,EXT-003,0,20,100
+192080,13203,5020,3476,2353,127,Test Draft Correspondence 4,EXT-004,0,20,100
+192081,13204,5021,3477,2354,126,Test Draft Correspondence 5,EXT-005,0,20,100

@@ -1,0 +1,6 @@
+correspondenceId,organizationId,contactEmployeeId,entityId,userId,typeId,subject,externalReference,priorityId,sourceId,statusId,correspondencePropertyId,propertyName,propertyValue,filePath,mimeType
+191058,13200,5017,1001,2350,1,test correspondence first round,1144,15,1,1,9,Correspondence Classification,Letter,E:\JMeter-Scenarios\test-files\sample.pdf,image/png
+191059,13201,5018,1002,2351,2,test correspondence second round,1145,16,2,2,10,Correspondence Classification,Memo,E:\JMeter-Scenarios\test-files\document.pdf,image/png
+191060,13202,5019,1003,2352,1,test correspondence third round,1146,15,1,1,9,Correspondence Classification,Report,E:\JMeter-Scenarios\test-files\report.pdf,image/png
+191061,13203,5020,1004,2353,2,test correspondence fourth round,1147,16,2,2,10,Correspondence Classification,Notice,E:\JMeter-Scenarios\test-files\notice.pdf,image/png
+191062,13204,5021,1005,2354,1,test correspondence fifth round,1148,15,1,1,9,Correspondence Classification,Request,E:\JMeter-Scenarios\test-files\request.pdf,image/png

@@ -1,0 +1,6 @@
+organizationId,contactEmployeeId,externalReference,subject,priorityId,typeId,sourceId,statusId,organizationName,employeeName,userId,linkedCorrespondenceId
+2148,5017,158,Create Correspondence with attachments and linked correspondence,1,1,1,1,Organization 1,Employee 1,2350,191068
+2149,5018,159,Create Correspondence with attachments and linked correspondence,1,1,1,1,Organization 2,Employee 2,2351,191069
+2150,5019,160,Create Correspondence with attachments and linked correspondence,1,1,1,1,Organization 3,Employee 3,2352,191070
+2151,5020,161,Create Correspondence with attachments and linked correspondence,1,1,1,1,Organization 4,Employee 4,2353,191071
+2152,5021,162,Create Correspondence with attachments and linked correspondence,1,1,1,1,Organization 5,Employee 5,2354,191072

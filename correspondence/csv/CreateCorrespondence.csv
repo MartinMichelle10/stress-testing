@@ -1,0 +1,6 @@
+organizationId,contactEmployeeId,externalReference,subject,priorityId,typeId,sourceId,statusId,organizationName,employeeName,entityId,subjectNames,attachmentFilePath,attachmentMimeType,correspondencePropertyId,propertyName,propertyValue
+2149,5017,EXT-001,test correspondence first round,1,126,1,1,Test Organization Alpha,John Smith,3473,Subject Alpha,E:\JMeter-Scenarios\conf-files\attachments\dictionary.pdf,application/pdf,9,Correspondence Classification,Letter
+2150,5018,EXT-002,test correspondence second round,2,127,2,2,Test Organization Beta,Jane Doe,3474,Subject Beta,E:\JMeter-Scenarios\conf-files\attachments\document.pdf,application/pdf,10,Correspondence Classification,Memo
+2151,5019,EXT-003,test correspondence third round,1,126,1,1,Test Organization Gamma,Bob Wilson,3475,Subject Gamma,E:\JMeter-Scenarios\conf-files\attachments\report.pdf,application/pdf,9,Correspondence Classification,Report
+2152,5020,EXT-004,test correspondence fourth round,2,127,2,2,Test Organization Delta,Alice Brown,3476,Subject Delta,E:\JMeter-Scenarios\conf-files\attachments\notice.pdf,application/pdf,10,Correspondence Classification,Notice
+2153,5021,EXT-005,test correspondence fifth round,1,126,1,1,Test Organization Epsilon,Charlie Davis,3477,Subject Epsilon,E:\JMeter-Scenarios\conf-files\attachments\request.pdf,application/pdf,9,Correspondence Classification,Request

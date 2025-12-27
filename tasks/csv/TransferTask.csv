@@ -1,0 +1,6 @@
+taskId,correspondenceId,attachmentId,correspondenceTypeId,priorityId,typeId,assigneeUserId1,assigneeUserId2,assigneeUserId3,title,comment
+272934,185643,96396,1,16,2,4410,4414,4464,Test Transfer Task 1,Transfer Comment 1
+272935,185644,96397,1,16,2,4411,4415,4465,Test Transfer Task 2,Transfer Comment 2
+272936,185645,96398,1,17,3,4412,4416,4466,Test Transfer Task 3,Transfer Comment 3
+272937,185646,96399,2,16,2,4413,4417,4467,Test Transfer Task 4,Transfer Comment 4
+272938,185647,96400,1,18,2,4414,4418,4468,Test Transfer Task 5,Transfer Comment 5

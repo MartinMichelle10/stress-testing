@@ -1,0 +1,6 @@
+correspondenceId,organizationId,contactEmployeeId,entityId,userId,priorityId,typeId,sourceId,statusId,subject,externalReference,subjectNames,correspondencePropertyId,propertyValue,pageIndex,listPageSize,attachmentPageSize,maxPageSize,attachmentFilePath,attachmentMimeType
+191069,2148,5017,3473,2350,1,1,1,1,"Test Correspondence Subject 1",158,"Subject Tag 1",9,"Letter",0,20,100,9007199254740991,dictionary.pdf,application/pdf
+191070,2149,5018,3474,2351,2,2,2,2,"Test Correspondence Subject 2",159,"Subject Tag 2",10,"Memo",0,20,100,9007199254740991,document.pdf,application/pdf
+191071,2150,5019,3475,2352,1,1,1,1,"Test Correspondence Subject 3",160,"Subject Tag 3",9,"Report",0,20,100,9007199254740991,report.pdf,application/pdf
+191072,2151,5020,3476,2353,2,2,2,2,"Test Correspondence Subject 4",161,"Subject Tag 4",10,"Notice",0,20,100,9007199254740991,notice.pdf,application/pdf
+191073,2152,5021,3477,2354,1,1,1,1,"Test Correspondence Subject 5",162,"Subject Tag 5",9,"Request",0,20,100,9007199254740991,request.pdf,application/pdf

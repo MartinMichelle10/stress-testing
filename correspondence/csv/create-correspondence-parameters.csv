@@ -1,0 +1,6 @@
+pageIndex,pageSize,sortBy,sortDirection,cti,desc,entityId,correspondenceId,contactId,employeeId,externalOutboundReference,subjectNames,subjectText,confidentialityLevel,correspondenceClassification
+0,20,createdAt,descending,1,true,3473,191068,2146,5017,1145,"تدريب","التعامل علي تدريب الموظفين","سري جدا 2","قرار"
+0,50,createdAt,ascending,2,false,3474,191069,2147,5018,1146,"اجتماع","موضوع الاجتماع الشهري","سري","تقرير"
+0,100,updatedAt,descending,3,true,3475,191070,2148,5019,1147,"مراسلة","مراسلة رسمية جديدة","عادي","خطاب"
+1,20,createdAt,descending,1,true,3476,191071,2149,5020,1148,"طلب","طلب اجازة سنوية","سري جدا","قرار"
+0,25,createdAt,ascending,2,false,3477,191072,2150,5021,1149,"شكوى","معالجة شكوى العملاء","سري","تقرير"

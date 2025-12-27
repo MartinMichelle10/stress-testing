@@ -1,0 +1,6 @@
+taskId,correspondenceId,attachmentId,userId,attachmentKey
+272895,185232,1001,2350,abc123def456:encryptedkey001
+272896,185233,1002,2351,abc123def457:encryptedkey002
+272897,185234,1003,2352,abc123def458:encryptedkey003
+272898,185235,1004,2353,abc123def459:encryptedkey004
+272899,185236,1005,2354,abc123def460:encryptedkey005

@@ -1,0 +1,6 @@
+taskId,correspondenceId,userId,ccUserId,closeComment,pageIndex,pageSize,sortDirection,assigneeUserId1,assigneeUserId2,assigneeUserId3,uploadFilePath
+272899,185223,2350,4410,Task completed successfully,0,10,descending,4410,4414,4464,${DATA_DIR}/attachments/file01.pdf
+272900,185224,2351,4411,Work done as requested,0,20,ascending,4411,4415,4465,${DATA_DIR}/attachments/file02.pdf
+272901,185225,2352,4412,All items addressed,1,10,descending,4412,4416,4466,${DATA_DIR}/attachments/file03.pdf
+272902,185226,2353,4413,Review complete,0,50,ascending,4413,4417,4467,${DATA_DIR}/attachments/file04.pdf
+272903,185227,2354,4414,Closing task with attachments,2,10,descending,4414,4418,4468,${DATA_DIR}/attachments/file05.pdf

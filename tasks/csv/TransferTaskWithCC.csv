@@ -1,0 +1,6 @@
+taskId,correspondenceId,attachmentId,correspondenceTypeId,priorityId,typeId,assigneeUserId1,assigneeUserId2,assigneeUserId3,ccUserId1,ccUserId2,ccUserId3,title,comment
+272993,185677,96396,1,3,4029,4410,4414,4464,33515,37596,37610,Test Transfer Task with CC 1,Transfer Comment with CC 1
+272994,185678,96397,1,3,4029,4411,4415,4465,33516,37597,37611,Test Transfer Task with CC 2,Transfer Comment with CC 2
+272995,185679,96398,1,4,4030,4412,4416,4466,33517,37598,37612,Test Transfer Task with CC 3,Transfer Comment with CC 3
+272996,185680,96399,2,3,4029,4413,4417,4467,33518,37599,37613,Test Transfer Task with CC 4,Transfer Comment with CC 4
+272997,185681,96400,1,5,4029,4414,4418,4468,33519,37600,37614,Test Transfer Task with CC 5,Transfer Comment with CC 5

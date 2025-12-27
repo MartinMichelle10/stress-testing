@@ -1,0 +1,6 @@
+entityId,linkedCorrespondenceId1,linkedCorrespondenceId2,correspondencePropertyId,propertyValue,subjectNames,attachmentFilePath,attachmentMimeType,pageIndex,pageSize,listPageSize,attachmentPageSize,sortBy,sortDirection
+3473,191067,191068,11,"خطاب","متابعة تطوير المحاكم",dictionary.pdf,application/pdf,0,9007199254740991,20,100,createdAt,descending
+3474,191069,191070,11,"خطاب","Create internal correspondence with attachments and linked correspondence",sample.pdf,application/pdf,0,9007199254740991,20,100,createdAt,descending
+3475,191071,191072,11,"مذكرة","Test Subject Name",document.pdf,application/pdf,0,9007199254740991,20,100,createdAt,descending
+3476,191073,191074,11,"تعميم","Internal Correspondence Test",report.pdf,application/pdf,0,9007199254740991,20,100,createdAt,descending
+3477,191075,191076,11,"خطاب","Performance Testing Subject",attachment.pdf,application/pdf,0,9007199254740991,20,100,createdAt,descending

@@ -1,0 +1,6 @@
+taskId,correspondenceId,closeComment,pageIndex,pageSize,sortDirection
+272895,185232,Task closed successfully,0,10,descending
+272896,185233,Work completed as requested,0,20,ascending
+272897,185234,All items addressed,1,10,descending
+272898,185235,Review complete,0,50,ascending
+272899,185236,Closing task with attachments,2,10,descending
