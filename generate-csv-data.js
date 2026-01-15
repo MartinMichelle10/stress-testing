@@ -50,15 +50,15 @@ const tableMappings = {
     observedTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
     ccTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
 
-    // Correspondence-related IDs
-    correspondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    correspondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    correspondenceId3: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    linkedCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    linkedCorrespondenceId1: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    linkedCorrespondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    sourceCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
-    newCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID' },
+    // Correspondence-related IDs (StatusID = 1 means Open)
+    correspondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    correspondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    correspondenceId3: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    linkedCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    linkedCorrespondenceId1: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    linkedCorrespondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    sourceCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    newCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
 
     // Organization & Contact IDs
     organizationId: { table: '[dbo].[ContactOrganizations]', idColumn: 'ID' },
@@ -259,7 +259,8 @@ function generateRandomText(field) {
 async function getRandomId(pool, mapping) {
     try {
         const columns = mapping.nameColumn ? `${mapping.idColumn}, ${mapping.nameColumn}` : mapping.idColumn;
-        const query = `SELECT TOP 1 ${columns} FROM ${mapping.table} ORDER BY NEWID()`;
+        const whereClause = mapping.filter ? `WHERE ${mapping.filter}` : '';
+        const query = `SELECT TOP 1 ${columns} FROM ${mapping.table} ${whereClause} ORDER BY NEWID()`;
         const result = await pool.request().query(query);
 
         if (result.recordset.length === 0) {
