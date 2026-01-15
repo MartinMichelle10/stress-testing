@@ -254,56 +254,46 @@ function generateRandomText(field) {
     }
 }
 
-// Cache for random IDs from database
-const idCache = {};
-const mongoCache = {};
+
 
 async function getRandomId(pool, mapping) {
-    const cacheKey = mapping.table + (mapping.nameColumn || '');
+    try {
+        const columns = mapping.nameColumn ? `${mapping.idColumn}, ${mapping.nameColumn}` : mapping.idColumn;
+        const query = `SELECT TOP 1 ${columns} FROM ${mapping.table} ORDER BY NEWID()`;
+        const result = await pool.request().query(query);
 
-    if (!idCache[cacheKey]) {
-        try {
-            const columns = mapping.nameColumn ? `${mapping.idColumn}, ${mapping.nameColumn}` : mapping.idColumn;
-            const query = `SELECT TOP 100 ${columns} FROM ${mapping.table} ORDER BY NEWID()`;
-            const result = await pool.request().query(query);
-            idCache[cacheKey] = result.recordset;
-        } catch (err) {
-            console.error(`Error fetching from ${mapping.table}:`, err.message);
-            idCache[cacheKey] = [];
+        if (result.recordset.length === 0) {
+            return mapping.nameColumn ? { id: 1, name: 'Default' } : 1;
         }
-    }
 
-    if (idCache[cacheKey].length === 0) {
+        const randomRow = result.recordset[0];
+        if (mapping.nameColumn) {
+            return { id: randomRow[mapping.idColumn], name: randomRow[mapping.nameColumn] };
+        }
+        return randomRow[mapping.idColumn];
+    } catch (err) {
+        console.error(`Error fetching from ${mapping.table}:`, err.message);
         return mapping.nameColumn ? { id: 1, name: 'Default' } : 1;
     }
-
-    const randomRow = idCache[cacheKey][Math.floor(Math.random() * idCache[cacheKey].length)];
-    if (mapping.nameColumn) {
-        return { id: randomRow[mapping.idColumn], name: randomRow[mapping.nameColumn] };
-    }
-    return randomRow[mapping.idColumn];
 }
 
 async function getMongoRandomId(mongoDb, mapping) {
-    const cacheKey = mapping.collection;
+    try {
+        const filter = TENANT_ID ? { tenantId: TENANT_ID } : {};
+        const docs = await mongoDb.collection(mapping.collection).aggregate([
+            { $match: filter },
+            { $sample: { size: 1 } }
+        ]).toArray();
 
-    if (!mongoCache[cacheKey]) {
-        try {
-            const filter = TENANT_ID ? { tenantId: TENANT_ID } : {};
-            const docs = await mongoDb.collection(mapping.collection).find(filter).limit(100).toArray();
-            mongoCache[cacheKey] = docs;
-        } catch (err) {
-            console.error(`Error fetching from MongoDB ${mapping.collection}:`, err.message);
-            mongoCache[cacheKey] = [];
+        if (docs.length === 0) {
+            return 'default_id';
         }
-    }
 
-    if (mongoCache[cacheKey].length === 0) {
+        return docs[0][mapping.idField].toString();
+    } catch (err) {
+        console.error(`Error fetching from MongoDB ${mapping.collection}:`, err.message);
         return 'default_id';
     }
-
-    const randomDoc = mongoCache[cacheKey][Math.floor(Math.random() * mongoCache[cacheKey].length)];
-    return randomDoc[mapping.idField].toString();
 }
 
 async function getMultipleRandomIds(pool, mapping, count) {
