@@ -68,7 +68,7 @@ const tableMappings = {
     employeeName: { table: '[dbo].[ContactEmployees]', idColumn: 'ID', nameColumn: 'Name' },
 
     // Lookup Table IDs
-    entityId: { table: '[dbo].[LkStructureEntity]', idColumn: 'ID' },
+    entityId: { table: '[dbo].[LKEntityStucture]', idColumn: 'ID' },
     typeId: { table: '[dbo].[LKCorrespondenceTypes]', idColumn: 'ID' },
     correspondenceTypeId: { table: '[dbo].[LKCorrespondenceTypes]', idColumn: 'ID' },
     taskTypeId: { table: '[dbo].[TaskType]', idColumn: 'ID' },
@@ -378,12 +378,19 @@ function createCsvContent(columns, rows) {
 }
 
 async function main() {
+    console.log('=== Database Configuration ===');
+    console.log(`MSSQL Server: ${dbConfig.server}`);
+    console.log(`MSSQL Database: ${dbConfig.database}`);
+    console.log(`MSSQL User: ${dbConfig.user}`);
+    console.log(`MongoDB URI: ${mongoUri}`);
+    console.log('==============================\n');
+
     console.log('Connecting to MSSQL database...');
 
     let pool;
     try {
         pool = await sql.connect(dbConfig);
-        console.log('MSSQL connected successfully!');
+        console.log(`MSSQL connected successfully to: ${dbConfig.server}/${dbConfig.database}`);
     } catch (err) {
         console.error('MSSQL connection failed:', err.message);
         process.exit(1);
