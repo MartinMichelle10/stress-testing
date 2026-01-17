@@ -350,7 +350,7 @@ async function getRandomId(pool, mapping) {
 
 async function getMongoRandomId(mongoDb, mapping) {
     try {
-        const filter = TENANT_ID ? { tenantId: TENANT_ID } : {};
+        const filter = TENANT_ID ? { tenantId: Number(TENANT_ID) } : {};
         const docs = await mongoDb.collection(mapping.collection).aggregate([
             { $match: filter },
             { $sample: { size: 1 } }
