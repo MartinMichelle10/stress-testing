@@ -26,6 +26,14 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/taaboraDB';
 // Fixed tenant ID from environment
 const TENANT_ID = process.env.TENANT_ID;
 
+// User ID(s) for filtering correspondences and tasks
+const USER_ID = process.env.USER_ID;
+const USER_IDS = process.env.USER_IDS ? process.env.USER_IDS.split(',').map(id => id.trim()) : (USER_ID ? [USER_ID] : []);
+
+// Permitted IDs (loaded at runtime)
+let permittedCorrespondences = null;
+let permittedTasks = null;
+
 // Table mappings for MSSQL
 const tableMappings = {
     // User-related IDs
@@ -256,7 +264,69 @@ function generateRandomText(field) {
 
 
 
+async function loadPermittedCorrespondences(pool) {
+    if (USER_IDS.length === 0) return null;
+
+    const userIdList = USER_IDS.join(',');
+    const query = `
+        SELECT DISTINCT c.ID
+        FROM [dbo].[Correspondences] c
+        INNER JOIN [dbo].[CorrespondenceAccessRight] car ON c.ID = car.CorrespondenceId
+        WHERE car.AccessEntityType = 'User'
+          AND car.AccessEntityId IN (${userIdList})
+          AND c.StatusID = 1
+    `;
+    try {
+        const result = await pool.request().query(query);
+        return result.recordset.map(r => r.ID);
+    } catch (err) {
+        console.error('Error loading permitted correspondences:', err.message);
+        return [];
+    }
+}
+
+async function loadPermittedTasks(pool) {
+    if (USER_IDS.length === 0) return null;
+
+    const userIdList = USER_IDS.join(',');
+    const query = `
+        SELECT DISTINCT t.ID
+        FROM [dbo].[Tasks] t
+        INNER JOIN [dbo].[TaskAssignment] ta ON t.ID = ta.TaskId
+        WHERE ta.AssigneeTypeId = 1
+          AND ta.AssigneeUserId IN (${userIdList})
+    `;
+    try {
+        const result = await pool.request().query(query);
+        return result.recordset.map(r => r.ID);
+    } catch (err) {
+        console.error('Error loading permitted tasks:', err.message);
+        return [];
+    }
+}
+
+function getRandomFromArray(arr) {
+    if (!arr || arr.length === 0) return null;
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
 async function getRandomId(pool, mapping) {
+    // Check if this is a user field and we have USER_ID configured
+    if (mapping.table === '[dbo].[Users]' && USER_IDS.length > 0) {
+        return parseInt(getRandomFromArray(USER_IDS));
+    }
+
+    // Check if this is a correspondence field and we have permitted list
+    if (mapping.table === '[dbo].[Correspondences]' && permittedCorrespondences && permittedCorrespondences.length > 0) {
+        return getRandomFromArray(permittedCorrespondences);
+    }
+
+    // Check if this is a task field and we have permitted list
+    if (mapping.table === '[dbo].[Tasks]' && permittedTasks && permittedTasks.length > 0) {
+        return getRandomFromArray(permittedTasks);
+    }
+
+    // Fall back to random DB query
     try {
         const columns = mapping.nameColumn ? `${mapping.idColumn}, ${mapping.nameColumn}` : mapping.idColumn;
         const whereClause = mapping.filter ? `WHERE ${mapping.filter}` : '';
@@ -410,6 +480,17 @@ async function main() {
     } catch (err) {
         console.warn('MongoDB connection failed (will use defaults):', err.message);
         mongoDb = null;
+    }
+
+    // Load permitted correspondences and tasks for specified user(s)
+    if (USER_IDS.length > 0) {
+        console.log(`\nLoading permitted data for user(s): ${USER_IDS.join(', ')}`);
+        permittedCorrespondences = await loadPermittedCorrespondences(pool);
+        permittedTasks = await loadPermittedTasks(pool);
+        console.log(`Found ${permittedCorrespondences?.length || 0} permitted correspondences`);
+        console.log(`Found ${permittedTasks?.length || 0} permitted tasks`);
+    } else {
+        console.log('\nNo USER_ID specified - will select random correspondences/tasks');
     }
 
     // Create output folder with date
