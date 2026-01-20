@@ -26,6 +26,14 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/taaboraDB';
 // Fixed tenant ID from environment
 const TENANT_ID = process.env.TENANT_ID;
 
+// User ID(s) for filtering correspondences and tasks
+const USER_ID = process.env.USER_ID;
+const USER_IDS = process.env.USER_IDS ? process.env.USER_IDS.split(',').map(id => id.trim()) : (USER_ID ? [USER_ID] : []);
+
+// Permitted IDs (loaded at runtime)
+let permittedCorrespondences = null;
+let permittedTasks = null;
+
 // Table mappings for MSSQL
 const tableMappings = {
     // User-related IDs
@@ -256,7 +264,69 @@ function generateRandomText(field) {
 
 
 
+async function loadPermittedCorrespondences(pool) {
+    if (USER_IDS.length === 0) return null;
+
+    const userIdList = USER_IDS.join(',');
+    const query = `
+        SELECT DISTINCT c.ID
+        FROM [dbo].[Correspondences] c
+        INNER JOIN [dbo].[CorrespondenceAccessRight] car ON c.ID = car.CorrespondenceId
+        WHERE car.AccessEntityType = 'User'
+          AND car.AccessEntityId IN (${userIdList})
+          AND c.StatusID = 1
+    `;
+    try {
+        const result = await pool.request().query(query);
+        return result.recordset.map(r => r.ID);
+    } catch (err) {
+        console.error('Error loading permitted correspondences:', err.message);
+        return [];
+    }
+}
+
+async function loadPermittedTasks(pool) {
+    if (USER_IDS.length === 0) return null;
+
+    const userIdList = USER_IDS.join(',');
+    const query = `
+        SELECT DISTINCT t.ID
+        FROM [dbo].[Tasks] t
+        INNER JOIN [dbo].[TaskAssignment] ta ON t.ID = ta.TaskId
+        WHERE ta.AssigneeTypeId = 1
+          AND ta.AssigneeUserId IN (${userIdList})
+    `;
+    try {
+        const result = await pool.request().query(query);
+        return result.recordset.map(r => r.ID);
+    } catch (err) {
+        console.error('Error loading permitted tasks:', err.message);
+        return [];
+    }
+}
+
+function getRandomFromArray(arr) {
+    if (!arr || arr.length === 0) return null;
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
 async function getRandomId(pool, mapping) {
+    // Check if this is a user field and we have USER_ID configured
+    if (mapping.table === '[dbo].[Users]' && USER_IDS.length > 0) {
+        return parseInt(getRandomFromArray(USER_IDS));
+    }
+
+    // Check if this is a correspondence field and we have permitted list
+    if (mapping.table === '[dbo].[Correspondences]' && permittedCorrespondences && permittedCorrespondences.length > 0) {
+        return getRandomFromArray(permittedCorrespondences);
+    }
+
+    // Check if this is a task field and we have permitted list
+    if (mapping.table === '[dbo].[Tasks]' && permittedTasks && permittedTasks.length > 0) {
+        return getRandomFromArray(permittedTasks);
+    }
+
+    // Fall back to random DB query
     try {
         const columns = mapping.nameColumn ? `${mapping.idColumn}, ${mapping.nameColumn}` : mapping.idColumn;
         const whereClause = mapping.filter ? `WHERE ${mapping.filter}` : '';
@@ -280,7 +350,7 @@ async function getRandomId(pool, mapping) {
 
 async function getMongoRandomId(mongoDb, mapping) {
     try {
-        const filter = TENANT_ID ? { tenantId: TENANT_ID } : {};
+        const filter = TENANT_ID ? { tenantId: Number(TENANT_ID) } : {};
         const docs = await mongoDb.collection(mapping.collection).aggregate([
             { $match: filter },
             { $sample: { size: 1 } }
@@ -306,10 +376,16 @@ async function getMultipleRandomIds(pool, mapping, count) {
     return [...new Set(ids)].join('|');
 }
 
-async function generateValue(pool, mongoDb, field) {
+async function generateValue(pool, mongoDb, field, csvName) {
     // Handle tenantId from env
     if (field === 'tenantId') {
         return TENANT_ID || 'default_tenant';
+    }
+
+    // Handle typeId based on CSV context (task vs correspondence)
+    if (field === 'typeId' && csvName && csvName.startsWith('tasks/')) {
+        // For task CSVs, typeId refers to TaskType table
+        return await getRandomId(pool, tableMappings['taskTypeId']);
     }
 
     // Check if it's a MongoDB field
@@ -355,10 +431,43 @@ async function generateValue(pool, mongoDb, field) {
     return result;
 }
 
-async function generateCsvRow(pool, mongoDb, columns) {
+async function generateCsvRow(pool, mongoDb, columns, csvName) {
     const row = {};
+
+    // For task CSVs that need typeId, typeName, typeNameEn - fetch TaskType record once
+    let taskTypeRecord = null;
+    if (csvName && csvName.startsWith('tasks/') &&
+        columns.includes('typeId') &&
+        (columns.includes('typeName') || columns.includes('typeNameEn'))) {
+        try {
+            const result = await pool.request().query(
+                `SELECT TOP 1 Id, Name,Name as NameEn FROM TaskType WHERE Active = 1 ORDER BY NEWID()`
+            );
+            if (result.recordset.length > 0) {
+                taskTypeRecord = result.recordset[0];
+            }
+        } catch (err) {
+            console.error('Error fetching TaskType:', err.message);
+        }
+    }
+
     for (const column of columns) {
-        row[column] = await generateValue(pool, mongoDb, column);
+        // Use pre-fetched TaskType data for related fields
+        if (taskTypeRecord) {
+            if (column === 'typeId') {
+                row[column] = taskTypeRecord.Id;
+                continue;
+            }
+            if (column === 'typeName') {
+                row[column] = taskTypeRecord.Name || 'Default Type';
+                continue;
+            }
+            if (column === 'typeNameEn') {
+                row[column] = taskTypeRecord.NameEn || 'Default Type';
+                continue;
+            }
+        }
+        row[column] = await generateValue(pool, mongoDb, column, csvName);
     }
     return row;
 }
@@ -412,6 +521,17 @@ async function main() {
         mongoDb = null;
     }
 
+    // Load permitted correspondences and tasks for specified user(s)
+    if (USER_IDS.length > 0) {
+        console.log(`\nLoading permitted data for user(s): ${USER_IDS.join(', ')}`);
+        permittedCorrespondences = await loadPermittedCorrespondences(pool);
+        permittedTasks = await loadPermittedTasks(pool);
+        console.log(`Found ${permittedCorrespondences?.length || 0} permitted correspondences`);
+        console.log(`Found ${permittedTasks?.length || 0} permitted tasks`);
+    } else {
+        console.log('\nNo USER_ID specified - will select random correspondences/tasks');
+    }
+
     // Create output folder with date
     const now = new Date();
     const dateFolder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
@@ -429,7 +549,7 @@ async function main() {
             console.log(`Generating ${csvName}.csv with ${ROW_COUNT} row(s)...`);
             const rows = [];
             for (let i = 0; i < ROW_COUNT; i++) {
-                const row = await generateCsvRow(pool, mongoDb, columns);
+                const row = await generateCsvRow(pool, mongoDb, columns, csvName);
                 rows.push(row);
             }
             const csvContent = createCsvContent(columns, rows);

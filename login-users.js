@@ -103,7 +103,7 @@ async function main() {
   console.error(`Found ${users.length} users in ${USERS_FILE}`);
 
   // Use fixed password for all users
-  const password = "P@ssw0rd1";
+  const password = "P@ssw0rd";
 
   // Login all users and collect tokens
   const tokens = [];
