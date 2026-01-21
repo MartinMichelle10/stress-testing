@@ -1,14 +1,14 @@
 {
-  "baseUrl": "https://qa-env.eastus2.cloudapp.azure.com",
-  "createdAt": "2025-12-31T11:50:36.316Z",
+  "baseUrl": "https://staging.tarasolcms.com",
+  "createdAt": "2026-01-21T17:27:16.939Z",
   "totalUsers": 1,
   "successfulUsers": 0,
   "users": [
-     {
-      "username": "administrator",
+    {
+      "username": "info2-super-user-role-01-y22ob9",
       "password": null,
-      "accountId": "69550da2dff34baeb8009370",
-      "createdAt": "2025-12-31T11:48:50.060Z",
+      "accountId": "69710c7342873994c6647134",
+      "createdAt": "2026-01-21T17:27:15.415Z",
       "success": true,
       "error": null
     }

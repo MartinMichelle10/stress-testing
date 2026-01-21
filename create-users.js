@@ -39,13 +39,13 @@ if (!COUNT || isNaN(COUNT) || COUNT <= 0) {
 
 // Optional - Admin credentials (used if ADMIN_TOKEN is not provided)
 const ADMIN_TOKEN = args["admin-token"] || process.env.ADMIN_TOKEN;
-const ADMIN_USERNAME = args["admin-username"] || process.env.ADMIN_USERNAME || "mot.admin";
+const ADMIN_USERNAME = args["admin-username"] || process.env.ADMIN_USERNAME || "administrator";
 const ADMIN_PASSWORD = args["admin-password"] || process.env.ADMIN_PASSWORD || "P@ssw0rd";
 
 // Optional - Other settings
-const BASE_URL = args["base-url"] || process.env.BASE_URL || "https://qa-env.eastus2.cloudapp.azure.com";
+const BASE_URL = args["base-url"] || process.env.BASE_URL || "https://staging.tarasolcms.com";
 const ENTITY_ID = parseInt(args["entityId"] || process.env.ENTITY_ID || "2", 10);
-const ROLE_ID = args["roleId"] || process.env.ROLE_ID || "6935daa548fb9a6bd193f7ce";
+const ROLE_ID = args["roleId"] || process.env.ROLE_ID || "687d1c868ca79e2b17176f30";
 const USERNAME_PREFIX = args["username-prefix"] || process.env.USERNAME_PREFIX || "test-user";
 const FINAL_PASSWORD = args["password"] || process.env.FINAL_PASSWORD || "P@ssw0rd1";
 const DELAY_MS = parseInt(args["delay"] || process.env.DELAY || "300", 10); // small pause between requests
