@@ -159,21 +159,21 @@ const tableMappings = {
     creatorUserId: { table: '[dbo].[Users]', idColumn: 'ID' },
 
     // Task-related IDs
-    taskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
-    taskId2: { table: '[dbo].[Tasks]', idColumn: 'ID' },
-    originalTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
-    observedTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
-    ccTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID' },
+    taskId: { table: '[dbo].[Tasks]', idColumn: 'ID', filter: 'IsDeleted = 0' },
+    taskId2: { table: '[dbo].[Tasks]', idColumn: 'ID', filter: 'IsDeleted = 0' },
+    originalTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID', filter: 'IsDeleted = 0' },
+    observedTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID', filter: 'IsDeleted = 0' },
+    ccTaskId: { table: '[dbo].[Tasks]', idColumn: 'ID', filter: 'IsDeleted = 0' },
 
-    // Correspondence-related IDs (StatusID = 1 means Open)
-    correspondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    correspondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    correspondenceId3: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    linkedCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    linkedCorrespondenceId1: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    linkedCorrespondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    sourceCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
-    newCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1' },
+    // Correspondence-related IDs (StatusID = 1 means Open, IsDeleted = 0 means not deleted)
+    correspondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    correspondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    correspondenceId3: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    linkedCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    linkedCorrespondenceId1: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    linkedCorrespondenceId2: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    sourceCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
+    newCorrespondenceId: { table: '[dbo].[Correspondences]', idColumn: 'ID', filter: 'StatusID = 1 AND IsDeleted = 0' },
 
     // Organization & Contact IDs
     organizationId: { table: '[dbo].[ContactOrganizations]', idColumn: 'ID' },
@@ -382,6 +382,7 @@ async function loadPermittedCorrespondencesForUser(pool, userId) {
         WHERE car.AccessEntityType = 'User'
           AND car.AccessEntityId = ${userId}
           AND c.StatusID = 1
+          AND c.IsDeleted = 0
     `;
     try {
         const result = await pool.request().query(query);
@@ -401,6 +402,7 @@ async function loadPermittedTasksForUser(pool, userId) {
         INNER JOIN [dbo].[TaskAssignment] ta ON t.ID = ta.TaskId
         WHERE ta.AssigneeTypeId = 1
           AND ta.AssigneeUserId = ${userId}
+          AND t.IsDeleted = 0
     `;
     try {
         const result = await pool.request().query(query);
