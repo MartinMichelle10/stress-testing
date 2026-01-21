@@ -615,6 +615,25 @@ async function generateCsvRow(pool, mongoDb, columns, csvName, currentUser) {
         }
     }
 
+    // Pre-fetch unique user IDs for assignee and CC fields to avoid duplicates
+    const assigneeFields = columns.filter(c => /^assigneeUserId\d*$/.test(c));
+    const ccFields = columns.filter(c => /^ccUserId\d*$/.test(c));
+    const totalUniqueUsersNeeded = assigneeFields.length + ccFields.length;
+
+    let uniqueUserIds = [];
+    if (totalUniqueUsersNeeded > 1) {
+        try {
+            const result = await pool.request().query(
+                `SELECT TOP ${totalUniqueUsersNeeded} ID FROM [dbo].[Users] ORDER BY NEWID()`
+            );
+            uniqueUserIds = result.recordset.map(r => r.ID);
+        } catch (err) {
+            console.error('Error fetching unique user IDs:', err.message);
+        }
+    }
+
+    let userIdIndex = 0;
+
     for (const column of columns) {
         // Use pre-fetched TaskType data for related fields
         if (taskTypeRecord) {
@@ -631,6 +650,14 @@ async function generateCsvRow(pool, mongoDb, columns, csvName, currentUser) {
                 continue;
             }
         }
+
+        // Use pre-fetched unique user IDs for assignee and CC fields
+        if ((/^assigneeUserId\d*$/.test(column) || /^ccUserId\d*$/.test(column)) && uniqueUserIds.length > 0) {
+            row[column] = uniqueUserIds[userIdIndex % uniqueUserIds.length];
+            userIdIndex++;
+            continue;
+        }
+
         row[column] = await generateValue(pool, mongoDb, column, csvName, currentUser);
     }
     return row;
