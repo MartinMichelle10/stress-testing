@@ -409,13 +409,17 @@ async function loadPermittedTasksForUser(pool, userId) {
         console.error(`Error fetching entityId for user ${userId}:`, err.message);
     }
 
-    // Step 2: Get task IDs using comprehensive query
+    // Step 2: Get task IDs using comprehensive query (only tasks with open correspondence)
     const query = `
         SELECT DISTINCT [Task].[Id]
         FROM [dbo].[Tasks] AS [Task]
+        INNER JOIN [dbo].[Correspondences] AS [Corr]
+            ON [Task].[CorrespondenceId] = [Corr].[Id]
         WHERE
             [Task].[isArchived] = 0
             AND [Task].[isDeleted] = 0
+            AND [Corr].[StatusID] = 1
+            AND [Corr].[IsDeleted] = 0
             AND (
                 EXISTS(
                     SELECT 1
