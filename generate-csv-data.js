@@ -396,17 +396,42 @@ async function loadPermittedCorrespondencesForUser(pool, userId) {
 async function loadPermittedTasksForUser(pool, userId) {
     if (!userId) return [];
 
+    // Step 1: Get the user's entityId
+    let entityId = null;
+    try {
+        const entityResult = await pool.request().query(
+            `SELECT [EntityId] FROM [dbo].[User] WHERE [Id] = ${userId}`
+        );
+        if (entityResult.recordset.length > 0) {
+            entityId = entityResult.recordset[0].EntityId;
+        }
+    } catch (err) {
+        console.error(`Error fetching entityId for user ${userId}:`, err.message);
+    }
+
+    // Step 2: Get task IDs using comprehensive query
     const query = `
-        SELECT DISTINCT t.ID
-        FROM [dbo].[Tasks] t
-        INNER JOIN [dbo].[TaskAssignment] ta ON t.ID = ta.TaskId
-        WHERE ta.AssigneeTypeId = 1
-          AND ta.AssigneeUserId = ${userId}
-          AND t.IsDeleted = 0
+        SELECT DISTINCT [Task].[Id]
+        FROM [dbo].[Task] AS [Task]
+        WHERE
+            [Task].[isArchived] = 0
+            AND [Task].[isDeleted] = 0
+            AND (
+                EXISTS(
+                    SELECT 1
+                    FROM [dbo].[TaskAssignment] AS [assignments]
+                    WHERE [Task].[id] = [assignments].[taskId]
+                    AND (
+                        [assignments].[assigneeUserId] = ${userId}
+                        ${entityId ? `OR [assignments].[assigneeEntityId] = ${entityId}` : ''}
+                    )
+                )
+                OR [Task].[creatorUserId] = ${userId}
+            )
     `;
     try {
         const result = await pool.request().query(query);
-        return result.recordset.map(r => r.ID);
+        return result.recordset.map(r => r.Id);
     } catch (err) {
         console.error(`Error loading permitted tasks for user ${userId}:`, err.message);
         return [];
