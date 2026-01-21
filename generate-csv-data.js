@@ -400,7 +400,7 @@ async function loadPermittedTasksForUser(pool, userId) {
     let entityId = null;
     try {
         const entityResult = await pool.request().query(
-            `SELECT [EntityId] FROM [dbo].[User] WHERE [Id] = ${userId}`
+            `SELECT [EntityId] FROM [dbo].[Users] WHERE [Id] = ${userId}`
         );
         if (entityResult.recordset.length > 0) {
             entityId = entityResult.recordset[0].EntityId;
@@ -412,7 +412,7 @@ async function loadPermittedTasksForUser(pool, userId) {
     // Step 2: Get task IDs using comprehensive query
     const query = `
         SELECT DISTINCT [Task].[Id]
-        FROM [dbo].[Task] AS [Task]
+        FROM [dbo].[Tasks] AS [Task]
         WHERE
             [Task].[isArchived] = 0
             AND [Task].[isDeleted] = 0
