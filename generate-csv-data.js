@@ -3,6 +3,8 @@ const sql = require('mssql');
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+const { URLSearchParams } = require('url');
 
 // Get row count from command line argument or default to 10
 const ROW_COUNT = parseInt(process.argv[2]) || 10;
@@ -23,16 +25,121 @@ const dbConfig = {
 // MongoDB configuration
 const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/taaboraDB';
 
+// API configuration
+const BASE_URL = process.env.BASE_URL || 'https://staging.tarasolcms.com';
+const USERS_FILE = process.env.USERS_FILE || 'users.json';
+const USER_PASSWORD = process.env.FINAL_PASSWORD || 'P@ssw0rd';
+
 // Fixed tenant ID from environment
 const TENANT_ID = process.env.TENANT_ID;
 
-// User ID(s) for filtering correspondences and tasks
-const USER_ID = process.env.USER_ID;
-const USER_IDS = process.env.USER_IDS ? process.env.USER_IDS.split(',').map(id => id.trim()) : (USER_ID ? [USER_ID] : []);
+// Will be populated from users.json at runtime
+let loadedUsers = [];
 
-// Permitted IDs (loaded at runtime)
-let permittedCorrespondences = null;
-let permittedTasks = null;
+// Permitted IDs per user (loaded at runtime) - keyed by userId
+const permittedCorrespondencesMap = new Map();
+const permittedTasksMap = new Map();
+
+// Authentication and user loading functions
+async function loadUsersFromFile() {
+    const usersFilePath = path.resolve(USERS_FILE);
+    if (!fs.existsSync(usersFilePath)) {
+        throw new Error(`Users file not found: ${usersFilePath}`);
+    }
+
+    const fileContent = fs.readFileSync(usersFilePath, 'utf8');
+    const usersData = JSON.parse(fileContent);
+
+    if (!usersData.users || !Array.isArray(usersData.users)) {
+        throw new Error("Invalid users.json format. Expected 'users' array.");
+    }
+
+    return usersData.users.filter(u => u.username && u.success !== false);
+}
+
+async function authenticateUser(username, password) {
+    const params = new URLSearchParams();
+    params.append('grant_type', 'username:password');
+    params.append('username', username);
+    params.append('password', password);
+
+    const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json, text/plain, */*',
+        'x-client-timestamp': new Date().toISOString(),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    };
+
+    try {
+        const res = await axios.post(`${BASE_URL}/api/identity/v1/token`, params.toString(), {
+            headers,
+            timeout: 30000
+        });
+
+        const tokenData = res.data;
+        const accessToken = tokenData.access_token || tokenData.accessToken || tokenData.token || tokenData.data?.access_token || null;
+
+        return accessToken;
+    } catch (err) {
+        throw new Error(`Authentication failed for ${username}: ${err?.response?.data ? JSON.stringify(err.response.data) : err.message}`);
+    }
+}
+
+function decodeJwtPayload(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            throw new Error('Invalid JWT format');
+        }
+        const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+        return JSON.parse(payload);
+    } catch (err) {
+        throw new Error(`Failed to decode JWT: ${err.message}`);
+    }
+}
+
+function extractUserIdFromToken(token) {
+    const payload = decodeJwtPayload(token);
+    // The userId is stored in this claim
+    const userId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
+    if (!userId) {
+        throw new Error('userId not found in token payload');
+    }
+    return parseInt(userId, 10);
+}
+
+async function authenticateAndResolveUsers(users) {
+    const resolvedUsers = [];
+
+    for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const password = user.password || USER_PASSWORD;
+
+        try {
+            console.log(`Authenticating user ${i + 1}/${users.length}: ${user.username}...`);
+            const token = await authenticateUser(user.username, password);
+
+            if (!token) {
+                console.warn(`  No token received for ${user.username}, skipping`);
+                continue;
+            }
+
+            const userId = extractUserIdFromToken(token);
+            console.log(`  Resolved userId: ${userId}`);
+
+            resolvedUsers.push({
+                username: user.username,
+                accountId: user.accountId,
+                userId: userId,
+                token: token
+            });
+        } catch (err) {
+            console.error(`  Failed to authenticate ${user.username}: ${err.message}`);
+        }
+    }
+
+    return resolvedUsers;
+}
 
 // Table mappings for MSSQL
 const tableMappings = {
@@ -100,58 +207,59 @@ const mongoMappings = {
 };
 
 // CSV file definitions - ALL from JMX test cases
+// Each CSV includes 'token' as the first column - all data in the row is tied to that token's user
 const csvDefinitions = {
     // Correspondence CSVs
-    'correspondence/csv/ReminderCorrespondence': ['correspondenceId', 'userId', 'reminderText', 'reminderDate'],
-    'correspondence/csv/ArchivedCorrespondence': ['correspondenceId', 'organizationId', 'userId'],
-    'correspondence/csv/BrowseCorrespondence': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'userId'],
-    'correspondence/csv/BrowseCorrespondenceAttachments': ['correspondenceId', 'correspondenceId2', 'correspondenceId3', 'organizationId', 'contactEmployeeId', 'userId', 'attachmentKey'],
-    'correspondence/csv/BrowseCorrespondenceData': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'userId'],
-    'correspondence/csv/correspondence-parameters': ['pageIndex', 'pageSize', 'desc', 'cti', 'byref'],
-    'correspondence/csv/CorrespondenceSorting': ['userId', 'cti', 'pageSize'],
-    'correspondence/csv/DraftCorrespondence': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'subject', 'externalReference', 'priorityId', 'sourceId', 'statusId', 'correspondencePropertyId', 'propertyName', 'propertyValue', 'filePath', 'mimeType'],
-    'correspondence/csv/CreateCorrespondenceAttachments': ['organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'userId', 'linkedCorrespondenceId'],
-    'correspondence/csv/CreateCorrespondence': ['organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'entityId', 'subjectNames', 'attachmentFilePath', 'attachmentMimeType', 'correspondencePropertyId', 'propertyName', 'propertyValue'],
-    'correspondence/csv/CreateCorrespondenceTaskTransfer': ['organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'assigneeUserId', 'taskTypeId', 'entityId', 'correspondencePropertyId'],
-    'correspondence/csv/InternalCorrespondenceData': ['entityId', 'linkedCorrespondenceId1', 'linkedCorrespondenceId2', 'correspondencePropertyId', 'propertyValue', 'subjectNames', 'attachmentFilePath', 'attachmentMimeType'],
-    'correspondence/csv/CreateOutboundCorrespondence': ['organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'userId', 'linkedCorrespondenceId'],
-    'correspondence/csv/DraftCorrespondenceList': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'subject', 'externalReference', 'pageIndex', 'listPageSize', 'attachmentPageSize'],
-    'correspondence/csv/EditCorrespondenceAttachments': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'priorityId', 'typeId', 'sourceId', 'statusId', 'subject', 'externalReference', 'subjectNames', 'correspondencePropertyId', 'propertyValue', 'pageIndex', 'listPageSize', 'attachmentPageSize', 'maxPageSize', 'attachmentFilePath', 'attachmentMimeType'],
-    'correspondence/csv/EditCorrespondence': ['correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'priorityId', 'typeId', 'sourceId', 'statusId', 'subject', 'externalReference', 'organizationName', 'employeeName', 'correspondencePropertyId', 'dueDate', 'receivedDate', 'sentDate', 'subjectNames', 'attachmentFile'],
-    'correspondence/csv/FilterCorrespondenceData': ['pageIndex', 'pageSize', 'desc', 'correspondenceTypeId', 'statusId', 'priorityId', 'sourceId', 'searchText'],
-    'correspondence/csv/MoveToCorrespondenceTab': ['typeId', 'pageIndex', 'listPageSize', 'maxPageSize'],
-    'correspondence/csv/ChangeHistoryCorrespondenceData': ['correspondenceId', 'userId', 'desc', 'pageIndex', 'pageSize'],
-    'correspondence/csv/PrintCorrespondence': ['correspondenceId', 'userId'],
-    'correspondence/csv/DraftCorrespondenceData': ['correspondenceId', 'correspondencePropertyId', 'propertyValue', 'contactOrganizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'priorityId', 'sourceId', 'statusId', 'pageIndex', 'pageSize', 'listPageSize', 'attachmentPageSize', 'sortBy', 'sortDirection', 'desc', 'organizationName'],
-    'correspondence/csv/ViewDocument': ['correspondenceId', 'userId', 'attachmentKey', 'attachmentKey2'],
-    'correspondence/csv/create-correspondence-parameters': ['pageIndex', 'pageSize', 'sortBy', 'sortDirection', 'cti', 'desc', 'entityId', 'correspondenceId', 'contactId', 'employeeId', 'externalOutboundReference', 'subjectNames', 'subjectText', 'confidentialityLevel', 'correspondenceClassification'],
-    'correspondence/csv/ChangeHistoryCorrespondence': ['correspondenceId', 'userId'],
+    'correspondence/csv/ReminderCorrespondence': ['token', 'correspondenceId', 'userId', 'reminderText', 'reminderDate'],
+    'correspondence/csv/ArchivedCorrespondence': ['token', 'correspondenceId', 'organizationId', 'userId'],
+    'correspondence/csv/BrowseCorrespondence': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'userId'],
+    'correspondence/csv/BrowseCorrespondenceAttachments': ['token', 'correspondenceId', 'correspondenceId2', 'correspondenceId3', 'organizationId', 'contactEmployeeId', 'userId', 'attachmentKey'],
+    'correspondence/csv/BrowseCorrespondenceData': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'userId'],
+    'correspondence/csv/correspondence-parameters': ['token', 'pageIndex', 'pageSize', 'desc', 'cti', 'byref'],
+    'correspondence/csv/CorrespondenceSorting': ['token', 'userId', 'cti', 'pageSize'],
+    'correspondence/csv/DraftCorrespondence': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'subject', 'externalReference', 'priorityId', 'sourceId', 'statusId', 'correspondencePropertyId', 'propertyName', 'propertyValue', 'filePath', 'mimeType'],
+    'correspondence/csv/CreateCorrespondenceAttachments': ['token', 'organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'userId', 'linkedCorrespondenceId'],
+    'correspondence/csv/CreateCorrespondence': ['token', 'organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'entityId', 'subjectNames', 'attachmentFilePath', 'attachmentMimeType', 'correspondencePropertyId', 'propertyName', 'propertyValue'],
+    'correspondence/csv/CreateCorrespondenceTaskTransfer': ['token', 'organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'assigneeUserId', 'taskTypeId', 'entityId', 'correspondencePropertyId'],
+    'correspondence/csv/InternalCorrespondenceData': ['token', 'entityId', 'linkedCorrespondenceId1', 'linkedCorrespondenceId2', 'correspondencePropertyId', 'propertyValue', 'subjectNames', 'attachmentFilePath', 'attachmentMimeType'],
+    'correspondence/csv/CreateOutboundCorrespondence': ['token', 'organizationId', 'contactEmployeeId', 'externalReference', 'subject', 'priorityId', 'typeId', 'sourceId', 'statusId', 'organizationName', 'employeeName', 'userId', 'linkedCorrespondenceId'],
+    'correspondence/csv/DraftCorrespondenceList': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'subject', 'externalReference', 'pageIndex', 'listPageSize', 'attachmentPageSize'],
+    'correspondence/csv/EditCorrespondenceAttachments': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'priorityId', 'typeId', 'sourceId', 'statusId', 'subject', 'externalReference', 'subjectNames', 'correspondencePropertyId', 'propertyValue', 'pageIndex', 'listPageSize', 'attachmentPageSize', 'maxPageSize', 'attachmentFilePath', 'attachmentMimeType'],
+    'correspondence/csv/EditCorrespondence': ['token', 'correspondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'userId', 'priorityId', 'typeId', 'sourceId', 'statusId', 'subject', 'externalReference', 'organizationName', 'employeeName', 'correspondencePropertyId', 'dueDate', 'receivedDate', 'sentDate', 'subjectNames', 'attachmentFile'],
+    'correspondence/csv/FilterCorrespondenceData': ['token', 'pageIndex', 'pageSize', 'desc', 'correspondenceTypeId', 'statusId', 'priorityId', 'sourceId', 'searchText'],
+    'correspondence/csv/MoveToCorrespondenceTab': ['token', 'typeId', 'pageIndex', 'listPageSize', 'maxPageSize'],
+    'correspondence/csv/ChangeHistoryCorrespondenceData': ['token', 'correspondenceId', 'userId', 'desc', 'pageIndex', 'pageSize'],
+    'correspondence/csv/PrintCorrespondence': ['token', 'correspondenceId', 'userId'],
+    'correspondence/csv/DraftCorrespondenceData': ['token', 'correspondenceId', 'correspondencePropertyId', 'propertyValue', 'contactOrganizationId', 'contactEmployeeId', 'entityId', 'userId', 'typeId', 'priorityId', 'sourceId', 'statusId', 'pageIndex', 'pageSize', 'listPageSize', 'attachmentPageSize', 'sortBy', 'sortDirection', 'desc', 'organizationName'],
+    'correspondence/csv/ViewDocument': ['token', 'correspondenceId', 'userId', 'attachmentKey', 'attachmentKey2'],
+    'correspondence/csv/create-correspondence-parameters': ['token', 'pageIndex', 'pageSize', 'sortBy', 'sortDirection', 'cti', 'desc', 'entityId', 'correspondenceId', 'contactId', 'employeeId', 'externalOutboundReference', 'subjectNames', 'subjectText', 'confidentialityLevel', 'correspondenceClassification'],
+    'correspondence/csv/ChangeHistoryCorrespondence': ['token', 'correspondenceId', 'userId'],
 
     // Tasks CSVs
-    'tasks/csv/AddTaskFromCorrespondence': ['correspondenceId', 'assigneeUserId', 'correspondenceTypeId', 'typeId', 'priorityId', 'entityId', 'attachmentId', 'assigneeDisplayName', 'entityName', 'typeName', 'typeNameEn', 'accountId', 'username', 'tenantId', 'creatorDisplayName', 'firstName', 'lastName', 'emailAddress', 'userTitle', 'phoneNumber', 'localeId', 'roleAccountId', 'roleId', 'roleName', 'createdAt'],
-    'tasks/csv/BrowseTasks': ['taskId', 'correspondenceId', 'userId', 'assigneeId', 'taskId2', 'correspondenceId2', 'attachmentId'],
-    'tasks/csv/CCTasksClose': ['taskId', 'correspondenceId', 'userId', 'originalTaskId', 'observedTaskId', 'ccTaskId', 'creatorUserId', 'assigneeUserId'],
-    'tasks/csv/ChangeTaskFilterToAllTasks': ['taskId', 'correspondenceId', 'attachmentId', 'pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/task_parameters': ['taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
-    'tasks/csv/follow_up_parameters': ['taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
-    'tasks/csv/ChangeTaskFilterMyClosedTask': ['taskId', 'correspondenceId', 'attachmentId'],
-    'tasks/csv/ChangeTaskFilterToTaskWasSendByMe': ['taskId', 'correspondenceId', 'attachmentId', 'pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/unread_task_parameters': ['taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
-    'tasks/csv/ChangeSortTasks': ['pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/CloseTaskWithCC': ['taskId', 'correspondenceId', 'userId', 'ccUserId', 'closeComment', 'pageIndex', 'pageSize', 'sortDirection', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'uploadFilePath'],
-    'tasks/csv/CloseTaskWithAttachments': ['taskId', 'correspondenceId', 'closeComment', 'pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/CloseTaskWithoutAttachmentsAndCC': ['taskId', 'correspondenceId', 'userId', 'closeComment'],
-    'tasks/csv/CreateOutboundFromTask': ['taskId', 'sourceCorrespondenceId', 'newCorrespondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'subject'],
-    'tasks/csv/FollowTask': ['taskId', 'correspondenceId', 'userId', 'pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/TaskReminder': ['taskId', 'correspondenceId', 'userId', 'reminderText', 'reminderDate'],
-    'tasks/csv/TaskAttachments': ['taskId', 'correspondenceId', 'attachmentId', 'attachmentId2', 'downloadKey', 'userId', 'pageIndex', 'pageSize', 'sortDirection'],
-    'tasks/csv/ElectronicCorrespondenceTab': ['taskId', 'correspondenceId', 'userId', 'assigneeId'],
-    'tasks/csv/TransferTask': ['taskId', 'correspondenceId', 'attachmentId', 'correspondenceTypeId', 'priorityId', 'typeId', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'title', 'comment'],
-    'tasks/csv/TaskOpenAttachment': ['taskId', 'correspondenceId', 'attachmentId', 'userId'],
-    'tasks/csv/ReplyToSenderWithoutCC': ['taskId', 'correspondenceId', 'userId', 'replyComment'],
-    'tasks/csv/TransferTaskWithCC': ['taskId', 'correspondenceId', 'attachmentId', 'correspondenceTypeId', 'priorityId', 'typeId', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'ccUserId1', 'ccUserId2', 'ccUserId3', 'title', 'comment'],
-    'tasks/csv/TransferTaskMultipleAssignees': ['taskId', 'correspondenceId', 'userId', 'assigneeUserIds'],
-    'tasks/csv/UnfollowTask': ['taskId', 'correspondenceId', 'userId']
+    'tasks/csv/AddTaskFromCorrespondence': ['token', 'correspondenceId', 'assigneeUserId', 'correspondenceTypeId', 'typeId', 'priorityId', 'entityId', 'attachmentId', 'assigneeDisplayName', 'entityName', 'typeName', 'typeNameEn', 'accountId', 'username', 'tenantId', 'creatorDisplayName', 'firstName', 'lastName', 'emailAddress', 'userTitle', 'phoneNumber', 'localeId', 'roleAccountId', 'roleId', 'roleName', 'createdAt'],
+    'tasks/csv/BrowseTasks': ['token', 'taskId', 'correspondenceId', 'userId', 'assigneeId', 'taskId2', 'correspondenceId2', 'attachmentId'],
+    'tasks/csv/CCTasksClose': ['token', 'taskId', 'correspondenceId', 'userId', 'originalTaskId', 'observedTaskId', 'ccTaskId', 'creatorUserId', 'assigneeUserId'],
+    'tasks/csv/ChangeTaskFilterToAllTasks': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/task_parameters': ['token', 'taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
+    'tasks/csv/follow_up_parameters': ['token', 'taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
+    'tasks/csv/ChangeTaskFilterMyClosedTask': ['token', 'taskId', 'correspondenceId', 'attachmentId'],
+    'tasks/csv/ChangeTaskFilterToTaskWasSendByMe': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/unread_task_parameters': ['token', 'taskId', 'pageIndex', 'pageSize', 'sortDirection', 'createdAtFrom', 'createdAtTo', 'assignedAtFrom', 'assignedAtTo', 'filePath', 'mimeType'],
+    'tasks/csv/ChangeSortTasks': ['token', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/CloseTaskWithCC': ['token', 'taskId', 'correspondenceId', 'userId', 'ccUserId', 'closeComment', 'pageIndex', 'pageSize', 'sortDirection', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'uploadFilePath'],
+    'tasks/csv/CloseTaskWithAttachments': ['token', 'taskId', 'correspondenceId', 'closeComment', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/CloseTaskWithoutAttachmentsAndCC': ['token', 'taskId', 'correspondenceId', 'userId', 'closeComment'],
+    'tasks/csv/CreateOutboundFromTask': ['token', 'taskId', 'sourceCorrespondenceId', 'newCorrespondenceId', 'organizationId', 'contactEmployeeId', 'entityId', 'subject'],
+    'tasks/csv/FollowTask': ['token', 'taskId', 'correspondenceId', 'userId', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/TaskReminder': ['token', 'taskId', 'correspondenceId', 'userId', 'reminderText', 'reminderDate'],
+    'tasks/csv/TaskAttachments': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'attachmentId2', 'downloadKey', 'userId', 'pageIndex', 'pageSize', 'sortDirection'],
+    'tasks/csv/ElectronicCorrespondenceTab': ['token', 'taskId', 'correspondenceId', 'userId', 'assigneeId'],
+    'tasks/csv/TransferTask': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'correspondenceTypeId', 'priorityId', 'typeId', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'title', 'comment'],
+    'tasks/csv/TaskOpenAttachment': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'userId'],
+    'tasks/csv/ReplyToSenderWithoutCC': ['token', 'taskId', 'correspondenceId', 'userId', 'replyComment'],
+    'tasks/csv/TransferTaskWithCC': ['token', 'taskId', 'correspondenceId', 'attachmentId', 'correspondenceTypeId', 'priorityId', 'typeId', 'assigneeUserId1', 'assigneeUserId2', 'assigneeUserId3', 'ccUserId1', 'ccUserId2', 'ccUserId3', 'title', 'comment'],
+    'tasks/csv/TransferTaskMultipleAssignees': ['token', 'taskId', 'correspondenceId', 'userId', 'assigneeUserIds'],
+    'tasks/csv/UnfollowTask': ['token', 'taskId', 'correspondenceId', 'userId']
 };
 
 // Random data generators for text fields
@@ -264,44 +372,53 @@ function generateRandomText(field) {
 
 
 
-async function loadPermittedCorrespondences(pool) {
-    if (USER_IDS.length === 0) return null;
+async function loadPermittedCorrespondencesForUser(pool, userId) {
+    if (!userId) return [];
 
-    const userIdList = USER_IDS.join(',');
     const query = `
         SELECT DISTINCT c.ID
         FROM [dbo].[Correspondences] c
         INNER JOIN [dbo].[CorrespondenceAccessRight] car ON c.ID = car.CorrespondenceId
         WHERE car.AccessEntityType = 'User'
-          AND car.AccessEntityId IN (${userIdList})
+          AND car.AccessEntityId = ${userId}
           AND c.StatusID = 1
     `;
     try {
         const result = await pool.request().query(query);
         return result.recordset.map(r => r.ID);
     } catch (err) {
-        console.error('Error loading permitted correspondences:', err.message);
+        console.error(`Error loading permitted correspondences for user ${userId}:`, err.message);
         return [];
     }
 }
 
-async function loadPermittedTasks(pool) {
-    if (USER_IDS.length === 0) return null;
+async function loadPermittedTasksForUser(pool, userId) {
+    if (!userId) return [];
 
-    const userIdList = USER_IDS.join(',');
     const query = `
         SELECT DISTINCT t.ID
         FROM [dbo].[Tasks] t
         INNER JOIN [dbo].[TaskAssignment] ta ON t.ID = ta.TaskId
         WHERE ta.AssigneeTypeId = 1
-          AND ta.AssigneeUserId IN (${userIdList})
+          AND ta.AssigneeUserId = ${userId}
     `;
     try {
         const result = await pool.request().query(query);
         return result.recordset.map(r => r.ID);
     } catch (err) {
-        console.error('Error loading permitted tasks:', err.message);
+        console.error(`Error loading permitted tasks for user ${userId}:`, err.message);
         return [];
+    }
+}
+
+async function loadPermittedDataForUsers(pool, users) {
+    console.log('\nLoading permitted correspondences and tasks for each user...');
+    for (const user of users) {
+        const correspondences = await loadPermittedCorrespondencesForUser(pool, user.userId);
+        const tasks = await loadPermittedTasksForUser(pool, user.userId);
+        permittedCorrespondencesMap.set(user.userId, correspondences);
+        permittedTasksMap.set(user.userId, tasks);
+        console.log(`  User ${user.username} (ID: ${user.userId}): ${correspondences.length} correspondences, ${tasks.length} tasks`);
     }
 }
 
@@ -310,20 +427,26 @@ function getRandomFromArray(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function getRandomId(pool, mapping) {
-    // Check if this is a user field and we have USER_ID configured
-    if (mapping.table === '[dbo].[Users]' && USER_IDS.length > 0) {
-        return parseInt(getRandomFromArray(USER_IDS));
+async function getRandomId(pool, mapping, currentUser) {
+    // Check if this is a user field - return the current user's ID
+    if (mapping.table === '[dbo].[Users]' && currentUser) {
+        return currentUser.userId;
     }
 
-    // Check if this is a correspondence field and we have permitted list
-    if (mapping.table === '[dbo].[Correspondences]' && permittedCorrespondences && permittedCorrespondences.length > 0) {
-        return getRandomFromArray(permittedCorrespondences);
+    // Check if this is a correspondence field and we have permitted list for this user
+    if (mapping.table === '[dbo].[Correspondences]' && currentUser) {
+        const permitted = permittedCorrespondencesMap.get(currentUser.userId);
+        if (permitted && permitted.length > 0) {
+            return getRandomFromArray(permitted);
+        }
     }
 
-    // Check if this is a task field and we have permitted list
-    if (mapping.table === '[dbo].[Tasks]' && permittedTasks && permittedTasks.length > 0) {
-        return getRandomFromArray(permittedTasks);
+    // Check if this is a task field and we have permitted list for this user
+    if (mapping.table === '[dbo].[Tasks]' && currentUser) {
+        const permitted = permittedTasksMap.get(currentUser.userId);
+        if (permitted && permitted.length > 0) {
+            return getRandomFromArray(permitted);
+        }
     }
 
     // Fall back to random DB query
@@ -367,16 +490,21 @@ async function getMongoRandomId(mongoDb, mapping) {
     }
 }
 
-async function getMultipleRandomIds(pool, mapping, count) {
+async function getMultipleRandomIds(pool, mapping, count, currentUser) {
     const ids = [];
     for (let i = 0; i < count; i++) {
-        const id = await getRandomId(pool, mapping);
+        const id = await getRandomId(pool, mapping, currentUser);
         ids.push(id);
     }
     return [...new Set(ids)].join('|');
 }
 
-async function generateValue(pool, mongoDb, field, csvName) {
+async function generateValue(pool, mongoDb, field, csvName, currentUser) {
+    // Handle token field - return the current user's token
+    if (field === 'token') {
+        return currentUser ? currentUser.token : '';
+    }
+
     // Handle tenantId from env
     if (field === 'tenantId') {
         return TENANT_ID || 'default_tenant';
@@ -385,12 +513,16 @@ async function generateValue(pool, mongoDb, field, csvName) {
     // Handle typeId based on CSV context (task vs correspondence)
     if (field === 'typeId' && csvName && csvName.startsWith('tasks/')) {
         // For task CSVs, typeId refers to TaskType table
-        return await getRandomId(pool, tableMappings['taskTypeId']);
+        return await getRandomId(pool, tableMappings['taskTypeId'], currentUser);
     }
 
     // Check if it's a MongoDB field
     const mongoMapping = mongoMappings[field];
     if (mongoMapping && mongoDb) {
+        // For accountId, use the current user's accountId if available
+        if (field === 'accountId' && currentUser && currentUser.accountId) {
+            return currentUser.accountId;
+        }
         return await getMongoRandomId(mongoDb, mongoMapping);
     }
 
@@ -409,6 +541,11 @@ async function generateValue(pool, mongoDb, field, csvName) {
         'externalOutboundReference', 'subjectText', 'contactId', 'employeeId', 'receivedDate', 'sentDate', 'localeId'
     ];
 
+    // Handle username field - use current user's username
+    if (field === 'username' && currentUser) {
+        return currentUser.username;
+    }
+
     if (textFields.includes(field)) {
         return generateRandomText(field);
     }
@@ -421,17 +558,17 @@ async function generateValue(pool, mongoDb, field, csvName) {
     }
 
     if (mapping.multiple) {
-        return await getMultipleRandomIds(pool, mapping, mapping.count || 5);
+        return await getMultipleRandomIds(pool, mapping, mapping.count || 5, currentUser);
     }
 
-    const result = await getRandomId(pool, mapping);
+    const result = await getRandomId(pool, mapping, currentUser);
     if (mapping.nameColumn) {
         return result.name;
     }
     return result;
 }
 
-async function generateCsvRow(pool, mongoDb, columns, csvName) {
+async function generateCsvRow(pool, mongoDb, columns, csvName, currentUser) {
     const row = {};
 
     // For task CSVs that need typeId, typeName, typeNameEn - fetch TaskType record once
@@ -467,7 +604,7 @@ async function generateCsvRow(pool, mongoDb, columns, csvName) {
                 continue;
             }
         }
-        row[column] = await generateValue(pool, mongoDb, column, csvName);
+        row[column] = await generateValue(pool, mongoDb, column, csvName, currentUser);
     }
     return row;
 }
@@ -488,15 +625,44 @@ function createCsvContent(columns, rows) {
 }
 
 async function main() {
-    console.log('=== Database Configuration ===');
+    console.log('=== Configuration ===');
     console.log(`MSSQL Server: ${dbConfig.server}`);
     console.log(`MSSQL Database: ${dbConfig.database}`);
     console.log(`MSSQL User: ${dbConfig.user}`);
     console.log(`MongoDB URI: ${mongoUri}`);
-    console.log('==============================\n');
+    console.log(`API Base URL: ${BASE_URL}`);
+    console.log(`Users File: ${USERS_FILE}`);
+    console.log('=====================\n');
 
-    console.log('Connecting to MSSQL database...');
+    // Step 1: Load users from users.json
+    console.log('Loading users from users.json...');
+    let usersFromFile;
+    try {
+        usersFromFile = await loadUsersFromFile();
+        console.log(`Found ${usersFromFile.length} user(s) in ${USERS_FILE}`);
+    } catch (err) {
+        console.error('Failed to load users:', err.message);
+        process.exit(1);
+    }
 
+    if (usersFromFile.length === 0) {
+        console.error('No valid users found in users.json');
+        process.exit(1);
+    }
+
+    // Step 2: Authenticate users and resolve userIds
+    console.log('\n=== Authenticating Users ===');
+    loadedUsers = await authenticateAndResolveUsers(usersFromFile);
+
+    if (loadedUsers.length === 0) {
+        console.error('No users could be authenticated');
+        process.exit(1);
+    }
+
+    console.log(`\nSuccessfully authenticated ${loadedUsers.length} user(s)`);
+
+    // Step 3: Connect to MSSQL
+    console.log('\nConnecting to MSSQL database...');
     let pool;
     try {
         pool = await sql.connect(dbConfig);
@@ -506,7 +672,7 @@ async function main() {
         process.exit(1);
     }
 
-    // Connect to MongoDB
+    // Step 4: Connect to MongoDB
     let mongoClient;
     let mongoDb;
     try {
@@ -521,18 +687,10 @@ async function main() {
         mongoDb = null;
     }
 
-    // Load permitted correspondences and tasks for specified user(s)
-    if (USER_IDS.length > 0) {
-        console.log(`\nLoading permitted data for user(s): ${USER_IDS.join(', ')}`);
-        permittedCorrespondences = await loadPermittedCorrespondences(pool);
-        permittedTasks = await loadPermittedTasks(pool);
-        console.log(`Found ${permittedCorrespondences?.length || 0} permitted correspondences`);
-        console.log(`Found ${permittedTasks?.length || 0} permitted tasks`);
-    } else {
-        console.log('\nNo USER_ID specified - will select random correspondences/tasks');
-    }
+    // Step 5: Load permitted correspondences and tasks for each user
+    await loadPermittedDataForUsers(pool, loadedUsers);
 
-    // Create output folder with date
+    // Step 6: Create output folder with date
     const now = new Date();
     const dateFolder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
     const outputDir = path.join(__dirname, 'output', dateFolder);
@@ -541,15 +699,21 @@ async function main() {
     fs.mkdirSync(path.join(outputDir, 'correspondence', 'csv'), { recursive: true });
     fs.mkdirSync(path.join(outputDir, 'tasks', 'csv'), { recursive: true });
 
-    console.log(`\nGenerating CSV files in: ${outputDir}\n`);
+    console.log(`\n=== Generating CSV Files ===`);
+    console.log(`Output directory: ${outputDir}`);
+    console.log(`Rows per CSV: ${ROW_COUNT}`);
+    console.log(`Users: ${loadedUsers.length}`);
+    console.log(`Strategy: Round-robin across users\n`);
 
-    // Generate each CSV file
+    // Step 7: Generate each CSV file - iterate over users for each row
     for (const [csvName, columns] of Object.entries(csvDefinitions)) {
         try {
             console.log(`Generating ${csvName}.csv with ${ROW_COUNT} row(s)...`);
             const rows = [];
             for (let i = 0; i < ROW_COUNT; i++) {
-                const row = await generateCsvRow(pool, mongoDb, columns, csvName);
+                // Round-robin: select user based on row index
+                const currentUser = loadedUsers[i % loadedUsers.length];
+                const row = await generateCsvRow(pool, mongoDb, columns, csvName, currentUser);
                 rows.push(row);
             }
             const csvContent = createCsvContent(columns, rows);
@@ -565,6 +729,11 @@ async function main() {
     if (mongoClient) {
         await mongoClient.close();
     }
+
+    console.log('\n=== Summary ===');
+    console.log(`Users processed: ${loadedUsers.length}`);
+    loadedUsers.forEach(u => console.log(`  - ${u.username} (userId: ${u.userId})`));
+    console.log(`CSV files generated in: ${outputDir}`);
     console.log('\nDone! All CSV files generated.');
 }
 
